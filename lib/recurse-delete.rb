@@ -21,8 +21,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-require 'valium'
-
 module RecurseDelete
   def recurse_delete
     delete_recursively self.class, self.id
@@ -43,7 +41,7 @@ module RecurseDelete
       # get the dependent class
       dependent_class = assoc.to_s.classify.constantize
       # get all the dependent record ids 
-      dependent_ids = dependent_class.where(parent_key => parent_ids).value_of(:id)
+      dependent_ids = dependent_class.where(parent_key => parent_ids).pluck(:id)
       # recurse
       delete_recursively(dependent_class, dependent_ids)
     end

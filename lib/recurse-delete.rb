@@ -22,6 +22,8 @@
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 module RecurseDelete
+  extend ActiveSupport::Concern
+
   def recurse_delete
     delete_recursively self.class, self.id
   end
@@ -30,22 +32,34 @@ module RecurseDelete
     # delete all the parent records
     parent_class.delete_all(:id => parent_ids)
 
-    # get the foreign key for the parent class
-    parent_key = parent_class.to_s.foreign_key
-
     # get the assocs for the parent class
     assocs = parent_class.reflect_on_all_associations.select do |assoc|
       [:destroy, :destroy_all, :delete, :delete_all].include? assoc.options[:dependent]
     end
-    assocs.map(&:name).each do |assoc|
+    assocs.each do |assoc|
       # get the dependent class
-      dependent_class = assoc.to_s.classify.constantize
+      dependent_class = assoc.name.to_s.classify.constantize
+      # get the foreign key
+      foreign_key = (assoc.options[:foreign_key] or parent_class.to_s.foreign_key)
       # get all the dependent record ids 
-      dependent_ids = dependent_class.where(parent_key => parent_ids).pluck(:id)
+      dependent_ids = dependent_class.where(foreign_key => parent_ids).pluck(:id)
       # recurse
       delete_recursively(dependent_class, dependent_ids)
     end
   end
+
+  module ClassMethods
+    def recurse_delete_all
+      delete_all
+      assocs = reflect_on_all_associations.select do |assoc|
+        [:destroy, :destroy_all, :delete, :delete_all].include? assoc.options[:dependent]
+      end
+      assocs.each do |assoc|
+        assoc.klass.recurse_delete_all
+      end
+    end
+  end
+
 end
 
 class ActiveRecord::Base
